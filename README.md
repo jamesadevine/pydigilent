@@ -2,7 +2,9 @@
 
 This repository contains an object oriented library for Digilent devices. It is written in Python 3 and has typing information. Typing means this library incompatible with earlier python versions.
 
-This library has been developed and tested with the Digilent Analog Discovery 2. The library is written to support any digilent device supported by the digilent SDK. Class properties are generated at runtime based upon the connected hardware.
+This library has been developed and tested with the Digilent Analog Discovery 2, however, the library is written to adapt to any digilent device supported by the digilent SDK. Using SDK calls, class properties are generated at runtime based upon the connected hardware. 
+
+Formally, only the object model of the AnalogDiscovery2 is supported. Object models for other digilent devices can be created independently in user applications by initialising the required classes.  Some work is required to enable `AnalogOut` functionality and peripheral implementations for `SPI`, `UART`, and `CAN`.
 
 ## Installation
 
