@@ -4,7 +4,7 @@ This repository contains an object oriented library for Digilent devices. It is 
 
 This library has been developed and tested with the Digilent Analog Discovery 2, however, the library is written to adapt to any digilent device supported by the digilent SDK. Using SDK calls, class properties are generated at runtime based upon the connected hardware. 
 
-Formally, only the object model of the AnalogDiscovery2 is supported. Object models for other digilent devices can be created independently in user applications by initialising the required classes.  Some work is required to enable `AnalogOut` functionality and peripheral implementations for `SPI`, `UART`, and `CAN`.
+Formally, only the object model of the AnalogDiscovery2 is supported. Object models for other digilent devices can be created independently in user applications by initialising the required classes.  Some work is required to enable `AnalogOut` functionality and implementations for `SPI`, `UART`, and `CAN` peripherals.
 
 ## Installation
 
