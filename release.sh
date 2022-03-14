@@ -2,6 +2,7 @@ if [ "$1" = "patch" ] || [ "$1" = "minor" ] || [ "$1" = "major" ]
 then
     python3 -m pip install --upgrade bumpversion
     python3 -m bumpversion --config-file .bumpversion.cfg $1 
+    git push origin main
     python3 -m pip install --upgrade build 
     python3 -m build 
     twine upload -r pypi dist/*
