@@ -1,4 +1,4 @@
-from digilent import *
+from pydigilent import *
 import time
 
 ad2 = AnalogDiscovery2()

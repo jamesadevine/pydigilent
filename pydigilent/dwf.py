@@ -1,11 +1,5 @@
 from ctypes import *
-from distutils.command import register
-from fnmatch import translate
-from random import sample
-from socket import AF_UNIX
 import sys
-from this import d
-import xxlimited
 from .dwfconstants import *
 import time
 import atexit
