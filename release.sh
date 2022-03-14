@@ -6,5 +6,5 @@ then
     python3 -m build 
     twine upload -r pypi dist/*
 else
-    echo "Please indicate the level to bump: part, minor, major"
+    echo "Please indicate bump level: part, minor, major"
 fi
