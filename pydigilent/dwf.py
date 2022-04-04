@@ -1,11 +1,12 @@
 from ctypes import *
+from optparse import Option
 import sys
 from .dwfconstants import *
 import time
 import atexit
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Optional
+from typing import Optional, Union
 
 dwf = None
 dmgr = None
@@ -14,14 +15,17 @@ dftd = None
 
 __devices = []
 
+
 def __digilent_exit():
     for d in __devices:
         d.close()
+
 
 _V_DIVS = 10.
 _H_DIVS = 10.
 
 atexit.register(__digilent_exit)
+
 
 def dll_load():
     global dwf, dmgr, ftd, fdtd
@@ -67,7 +71,7 @@ def dll_load():
         #     print(" "+str(i+1)+". SN:"+str(sn.value)+" '"+str(name.value)+"'"+" flags: "+hex(flags.value)+" type: "+hex(type.value)+" id: "+hex(pdid.value)+" locid: "+hex(locid.value))
 
     dwf.FDwfGetVersion(version)
-    print("DWF Version:  %s" % str(version.value,encoding="utf8"))
+    print("DWF Version:  %s" % str(version.value, encoding="utf8"))
 
 
 class DigilentDevice:
@@ -173,7 +177,8 @@ class AnalogDiscovery2:
     def __init__(self, device: DigilentDevice = None):
         if device is None:
             global retrieve_devices
-            device = retrieve_device(DigilentDevice.DeviceType.Discovery2, raw=True)
+            device = retrieve_device(
+                DigilentDevice.DeviceType.Discovery2, raw=True)
 
         if device is None:
             raise Exception("No Digilent device found.")
@@ -192,16 +197,19 @@ class AnalogDiscovery2:
 
     def plot(self, trace, show=False):
         main = trace
-        if isinstance(trace,tuple):
+        if isinstance(trace, tuple):
             main = trace[0]
         else:
             # coherce into list to avoid code duplication later
             trace = [trace]
 
         yvalmin = np.min(main["y"])
-        ydispmax=np.max(main["yaxis"])
+        ydispmax = np.max(main["yaxis"])
         if ydispmax < yvalmin:
-            raise Exception("Rendering data outside plot. Adjust scope offset.")
+            raise Exception(
+                "Rendering data outside plot. Adjust scope offset.")
+
+        print(main["xticks"])
 
         plt.xlabel(main["xlabel"])
         plt.ylabel(main["ylabel"])
@@ -217,6 +225,7 @@ class AnalogDiscovery2:
         if show:
             plt.show()
 
+
 class DigilentFactory:
     @staticmethod
     def coherce(device):
@@ -226,6 +235,7 @@ class DigilentFactory:
         if device.type == "Discovery2":
             return AnalogDiscovery2(device)
         return None
+
 
 def _init_devices():
     if dwf is None:
@@ -248,6 +258,7 @@ def _init_devices():
             if d not in devs:
                 del d
 
+
 def retrieve_devices(device_filter: DigilentDevice.DeviceType, raw=False):
     _init_devices()
 
@@ -261,6 +272,7 @@ def retrieve_devices(device_filter: DigilentDevice.DeviceType, raw=False):
 
     return [DigilentFactory.coherce(d) for d in devs]
 
+
 def retrieve_device(filter: DigilentDevice.DeviceType, raw=False):
     devices = retrieve_devices(filter, raw=raw)
 
@@ -268,6 +280,7 @@ def retrieve_device(filter: DigilentDevice.DeviceType, raw=False):
         return None
 
     return devices[0]
+
 
 class DigilentScopeTrigger:
     class TriggerCondition:
@@ -281,7 +294,7 @@ class DigilentScopeTrigger:
         DetectorAnalogIn = trigsrcDetectorAnalogIn.value
         DetectorDigitalIn = trigsrcDetectorDigitalIn.value
         AnalogIn = trigsrcAnalogIn.value
-        DigitalIn =trigsrcDigitalIn.value
+        DigitalIn = trigsrcDigitalIn.value
         DigitalOut = trigsrcDigitalOut.value
         AnalogOut1 = trigsrcAnalogOut1.value
         AnalogOut2 = trigsrcAnalogOut2.value
@@ -300,7 +313,7 @@ class DigilentScopeTrigger:
         self.scope = scope
 
         self.bounds = {
-            "level" :{
+            "level": {
                 "min": -1,
                 "max": -1
             },
@@ -315,36 +328,42 @@ class DigilentScopeTrigger:
         self.__channel_bounds()
 
     def __level_bounds(self):
-        vmin = c_int()
-        vmax = c_int()
-        nsteps = c_int() # ignored
-        self.device.call(dwf.FDwfAnalogInTriggerLevelInfo, self.device.handle, byref(vmin), byref(vmax), byref(nsteps))
+        vmin = c_double()
+        vmax = c_double()
+        nsteps = c_int()  # ignored
+        self.device.call(dwf.FDwfAnalogInTriggerLevelInfo, self.device.handle, byref(
+            vmin), byref(vmax), byref(nsteps))
         self.bounds["level"]["min"] = vmin.value
         self.bounds["level"]["max"] = vmax.value
 
     def __channel_bounds(self):
         cmin = c_int()
         cmax = c_int()
-        self.device.call(dwf.FDwfAnalogInTriggerChannelInfo, self.device.handle, byref(cmin), byref(cmax))
+        self.device.call(dwf.FDwfAnalogInTriggerChannelInfo,
+                         self.device.handle, byref(cmin), byref(cmax))
         self.bounds["channel"]["min"] = cmin.value
         self.bounds["channel"]["max"] = cmax.value
 
     @property
     def level(self) -> float:
         lev = c_double()
-        self.device.call(dwf.FDwfAnalogInTriggerLevelGet, self.device.handle, byref(lev))
+        self.device.call(dwf.FDwfAnalogInTriggerLevelGet,
+                         self.device.handle, byref(lev))
         return lev.value
 
     @level.setter
-    def level(self, level:float):
+    def level(self, level: float):
+        print(self.bounds["level"])
         if level < self.bounds["level"]["min"] or level > self.bounds['level']["max"]:
             raise Exception("Level out of bounds")
-        self.device.call(dwf.FDwfAnalogInTriggerLevelSet, self.device.handle, c_double(level))
+        self.device.call(dwf.FDwfAnalogInTriggerLevelSet,
+                         self.device.handle, c_double(level))
 
     @property
     def source(self):
         src = c_int()
-        self.device.call(dwf.FDwfAnalogInTriggerSourceGet, self.device.handle, byref(src))
+        self.device.call(dwf.FDwfAnalogInTriggerSourceGet,
+                         self.device.handle, byref(src))
         return src.value
 
     ###
@@ -352,11 +371,12 @@ class DigilentScopeTrigger:
     # @param src A class property of TriggerSource.
     ###
     @source.setter
-    def source(self, src):
+    def source(self, src: TriggerSource):
         if isinstance(src, DigilentScopeChannel):
+            self.channel = src.idx.value
             src = DigilentScopeTrigger.TriggerSource.DetectorAnalogIn
-            self.channel = src.idx
-        self.device.call(dwf.FDwfAnalogInTriggerSourceSet, self.device.handle, c_int(src))
+        self.device.call(dwf.FDwfAnalogInTriggerSourceSet,
+                         self.device.handle, c_int(src))
 
     @property
     def channel(self):
@@ -365,16 +385,18 @@ class DigilentScopeTrigger:
         return chan.value
 
     @channel.setter
-    def channel (self, channel: int):
+    def channel(self, channel: int):
         if channel < self.bounds["channel"]["min"] or channel > self.bounds["channel"]["max"]:
             raise Exception("Channel out of bounds.")
 
-        self.device.call(dwf.FDwfAnalogInTriggerChannelSet, self.device.handle, c_int(channel))
+        self.device.call(dwf.FDwfAnalogInTriggerChannelSet,
+                         self.device.handle, c_int(channel))
 
     @property
     def condition(self) -> TriggerCondition:
         cond = c_int()
-        self.device.call(dwf.FDwfAnalogInTriggerConditionGet, self.device.handle, byref(cond))
+        self.device.call(dwf.FDwfAnalogInTriggerConditionGet,
+                         self.device.handle, byref(cond))
         return cond.value
 
     ###
@@ -385,9 +407,11 @@ class DigilentScopeTrigger:
     def condition(self, condition: TriggerCondition):
         conds = c_int()
         # retrieve possible conditions bit mask
-        self.device.call(dwf.FDwfAnalogInTriggerConditionInfo, self.device.handle, byref(conds))
+        self.device.call(dwf.FDwfAnalogInTriggerConditionInfo,
+                         self.device.handle, byref(conds))
         if (1 << condition) & conds.value:
-            self.device.call(dwf.FDwfAnalogInTriggerConditionSet, self.device.handle, c_int(condition))
+            self.device.call(dwf.FDwfAnalogInTriggerConditionSet,
+                             self.device.handle, c_int(condition))
         else:
             raise Exception("Condition not supported")
 
@@ -406,7 +430,8 @@ class DigilentScopeChannel:
     @property
     def enabled(self):
         enabled = c_bool()
-        self.device.call(dwf.FDwfAnalogInChannelEnableGet, self.device.handle, self.idx, byref(enabled))
+        self.device.call(dwf.FDwfAnalogInChannelEnableGet,
+                         self.device.handle, self.idx, byref(enabled))
         return enabled.value
 
     @enabled.setter
@@ -415,16 +440,19 @@ class DigilentScopeChannel:
         if self.enabled == enabled:
             return
 
-        self.device.call(dwf.FDwfAnalogInChannelEnableSet, self.device.handle, c_bool(enabled))
+        self.device.call(dwf.FDwfAnalogInChannelEnableSet,
+                         self.device.handle, c_bool(enabled))
 
     @property
     def range(self):
         r = c_double()
-        self.device.call(dwf.FDwfAnalogInChannelRangeGet, self.device.handle, self.idx, byref(r))
+        self.device.call(dwf.FDwfAnalogInChannelRangeGet,
+                         self.device.handle, self.idx, byref(r))
         return r.value
+
     def range(self, range):
         self.device.call(dwf.FDwfAnalogInChannelRangeSet,
-            self.device.handle, self.idx, c_double(range * _V_DIVS))
+                         self.device.handle, self.idx, c_double(range * _V_DIVS))
 
     @property
     def vertical_division(self):
@@ -439,7 +467,7 @@ class DigilentScopeChannel:
     def offset(self):
         offset = c_double()
         self.device.call(dwf.FDwfAnalogInChannelOffsetGet,
-            self.device.handle, self.idx, byref(offset))
+                         self.device.handle, self.idx, byref(offset))
         return offset.value
 
     @offset.setter
@@ -447,7 +475,7 @@ class DigilentScopeChannel:
         if offset < self.scope.bounds["offset"]["min"] or offset > self.scope.bounds["offset"]["max"]:
             raise Exception("Selected offset is out of bounds")
         self.device.call(dwf.FDwfAnalogInChannelOffsetSet,
-            self.device.handle, self.idx, c_double(offset))
+                         self.device.handle, self.idx, c_double(offset))
         time.sleep(2.0)
 
     @property
@@ -455,20 +483,21 @@ class DigilentScopeChannel:
         self.enabled = True
         buffer = None
         state = c_int()
-        self.device.call(dwf.FDwfAnalogInStatus, self.device.handle, c_int(1), byref(state))
+        self.device.call(dwf.FDwfAnalogInStatus,
+                         self.device.handle, c_int(1), byref(state))
 
         u16Read = False
         if u16Read:
             buffer = (c_ushort * self.__buffer_size)()
             self.device.call(dwf.FDwfAnalogInStatusData16,
-                self.device.handle, self.idx, buffer, c_int(0), c_int(self.__buffer_size))
+                             self.device.handle, self.idx, buffer, c_int(0), c_int(self.__buffer_size))
             r = self.range
             off = self.offset
-            buffer = [float(b * r / 65536. + off)  for b in buffer]
+            buffer = [float(b * r / 65536. + off) for b in buffer]
         else:
             buffer = (c_double * self.__buffer_size)()
             self.device.call(dwf.FDwfAnalogInStatusData,
-                self.device.handle, self.idx, buffer, c_int(self.__buffer_size))
+                             self.device.handle, self.idx, buffer, c_int(self.__buffer_size))
 
         u = self.__determine_units()
         freq_step = 1.*u["multiplier"]/self.scope.frequency
@@ -479,11 +508,11 @@ class DigilentScopeChannel:
             # TODO: use when trigger active
             pos = np.arange(0, freq_step * self.__buffer_size//2, freq_step)
             neg = [-i for i in pos]
-            cols = np.concatenate((neg,pos))
+            cols = np.concatenate((neg, pos))
         else:
             cols = np.arange(0, freq_step * self.__buffer_size, freq_step)
 
-        d = np.fromiter(buffer, dtype = np.float)
+        d = np.fromiter(buffer, dtype=np.float)
         unitstr = "Time (%s)" % u["unit"]
         offr = round(self.offset, 2)
         return {
@@ -498,9 +527,10 @@ class DigilentScopeChannel:
 
     def __determine_units(self):
         freq = self.scope.frequency
-        sample_freq = 1. / freq # frequency to seconds
+        sample_freq = 1. / freq  # frequency to seconds
         total_samples = sample_freq * self.__buffer_size
-        units = [{"unit": "ns", "multiplier":1000000000., "tick_step":500}, {"unit": "us", "multiplier":1000000., "tick_step":50}, {"unit": "ms", "multiplier":1000., "tick_step":.5}, {"unit": "s", "multiplier":1., "tick_step":.05}]
+        units = [{"unit": "ns", "multiplier": 1000000000., "tick_step": 500}, {"unit": "us", "multiplier": 1000000., "tick_step": 50}, {
+            "unit": "ms", "multiplier": 1000., "tick_step": .5}, {"unit": "s", "multiplier": 1., "tick_step": .05}]
         ns_thresh = 0.000000001
         sf = 1000.
         unit = None
@@ -516,13 +546,19 @@ class DigilentScopeChannel:
     @property
     def voltage(self):
         state = c_int()
-        self.device.call(dwf.FDwfAnalogInStatus, self.device.handle, c_int(1), byref(state))
+        self.device.call(dwf.FDwfAnalogInStatus,
+                         self.device.handle, c_int(1), byref(state))
         sample = c_double()
-        self.device.call(dwf.FDwfAnalogInStatusSample, self.device.handle, self.idx, byref(sample))
+        self.device.call(dwf.FDwfAnalogInStatusSample,
+                         self.device.handle, self.idx, byref(sample))
         return sample.value
 
+
 class DigilentScope:
-    channels = []
+    channels:Optional[list[DigilentScopeChannel]] = []
+    trigger: Optional[DigilentScopeTrigger]
+    channel1:Optional[DigilentScopeChannel]
+    channel2:Optional[DigilentScopeChannel]
 
     class AcquireState:
         Ready = DwfStateReady.value
@@ -545,13 +581,15 @@ class DigilentScope:
     def __init__(self, device):
         self.device = device
         # ensure hardware is in a default state
-        self.device.call(dwf.FDwfAnalogInReset,self.device.handle)
+        self.device.call(dwf.FDwfAnalogInReset, self.device.handle)
         self.configure()
-        self.device.call(dwf.FDwfAnalogInChannelAttenuationSet, self.device.handle, c_int(-1), c_double(1.0))
+        self.device.call(dwf.FDwfAnalogInChannelAttenuationSet,
+                         self.device.handle, c_int(-1), c_double(1.0))
 
         # configure hardware buffer size to maximum
         bs = c_int()
-        self.device.call(dwf.FDwfAnalogInBufferSizeInfo, self.device.handle, 0, byref(bs))
+        self.device.call(dwf.FDwfAnalogInBufferSizeInfo,
+                         self.device.handle, 0, byref(bs))
         self.device.call(dwf.FDwfAnalogInBufferSizeSet, self.device.handle, bs)
         self.__buffer_size = bs.value
 
@@ -582,35 +620,38 @@ class DigilentScope:
             self.__setattr__("channel%d" % (i + 1), c)
 
         self.trigger = DigilentScopeTrigger(self.device, self)
-        self.device.call(dwf.FDwfAnalogInChannelFilterSet, self.device.handle, c_int(-1), filterDecimate)
+        self.device.call(dwf.FDwfAnalogInChannelFilterSet,
+                         self.device.handle, c_int(-1), filterDecimate)
 
-        self.horizontal_division = .001 # 1ms a div
+        self.horizontal_division = .001  # 1ms a div
 
     @property
     def channel_count(self):
         count = c_int()
-        self.device.call(dwf.FDwfAnalogInChannelCount, self.device.handle, byref(count))
+        self.device.call(dwf.FDwfAnalogInChannelCount,
+                         self.device.handle, byref(count))
         return count.value
 
     def configure(self):
-        self.device.call(dwf.FDwfAnalogInConfigure,self.device.handle, c_int(1), c_int(0))
+        self.device.call(dwf.FDwfAnalogInConfigure,
+                         self.device.handle, c_int(1), c_int(0))
 
     def __frequency_bounds(self):
         min = c_double()
         max = c_double()
         self.device.call(dwf.FDwfAnalogInFrequencyInfo,
-            self.device.handle, byref(min), byref(max))
+                         self.device.handle, byref(min), byref(max))
 
         self.bounds["frequency"]["min"] = min.value
         self.bounds["frequency"]["max"] = max.value
 
     def __offset_bounds(self):
-        num_steps = c_int() # ignore?
+        num_steps = c_int()  # ignore?
         offmin = c_double()
         offmax = c_double()
 
         self.device.call(dwf.FDwfAnalogInChannelOffsetInfo,
-            self.device.handle, byref(offmin), byref(offmax), byref(num_steps))
+                         self.device.handle, byref(offmin), byref(offmax), byref(num_steps))
 
         self.bounds["offset"]["min"] = offmin.value
         self.bounds["offset"]["max"] = offmax.value
@@ -620,26 +661,34 @@ class DigilentScope:
         steps = (c_double * 32)()
         num_steps = c_int()
         self.device.call(dwf.FDwfAnalogInChannelRangeSteps,
-            self.device.handle, byref(steps), byref(num_steps))
+                         self.device.handle, byref(steps), byref(num_steps))
 
         vmin = c_double()
         vmax = c_double()
         vsteps = c_int()
 
         self.device.call(dwf.FDwfAnalogInChannelRangeInfo,
-            self.device.handle, byref(vmin), byref(vmax), byref(vsteps))
+                         self.device.handle, byref(vmin), byref(vmax), byref(vsteps))
 
         self.bounds["range"]["min"] = vmin.value
         self.bounds["range"]["max"] = vmax.value
 
+    # returns the vertical division for all channels as a list
+    # [float]
+    @property
+    def vertical_division(self) -> list[float]:
+        return [c.vertical_division for c in self.channels]
+
     # set the range for all channels
-    # @param range vertical div in volts
+    # @param range vertical div in volts [float] | float
     # note, possible range values depend on hardware
     # query self.bounds["range"] for min/max values
-    def set_vertical_division(self, vdiv):
-         # if a list is given, each channel has its own range
+    @vertical_division.setter
+    def vertical_division(self, vdiv: Union[list[float], float]):
+        # if a list is given, each channel has its own range
         if isinstance(range, list):
-            iter_val = min(len(self.channels), len(range)) # use the smaller length of the two lists
+            # use the smaller length of the two lists
+            iter_val = min(len(self.channels), len(range))
             for i in range(0, iter_val):
                 self.channels[i].vertical_division = vdiv[i]
         else:
@@ -648,18 +697,20 @@ class DigilentScope:
 
     def __set_offset(self, idx, offset):
         if offset < self.bounds["offset"]["min"] or offset > self.bounds["offset"]["max"]:
-                raise Exception("Selected offset is out of bounds {%f, %f}" % (self.bounds["offset"]["min"], self.bounds["offset"]["max"]))
+            raise Exception("Selected offset is out of bounds {%f, %f}" % (
+                self.bounds["offset"]["min"], self.bounds["offset"]["max"]))
         self.device.call(dwf.FDwfAnalogInChannelOffsetSet,
-                    self.device.handle, c_int(idx), c_double(offset))
+                         self.device.handle, c_int(idx), c_double(offset))
 
     # set the offset for all channels
     # @param offset offset volts - can be a list of offsets
     # note, possible range values depend on hardware
     # query self.bounds["offset"] for min/max values
-    def set_offset(self, offset, settle_time=2.0):
+    def set_offset(self, offset: float, settle_time=2.0):
         # if a list is given, each channel has its own offset
         if isinstance(offset, list):
-            iter_val = min(len(self.channels), len(offset)) # use the smaller length of the two lists
+            # use the smaller length of the two lists
+            iter_val = min(len(self.channels), len(offset))
             for i in range(0, iter_val):
                 self.__set_offset(i, offset[i])
         else:
@@ -670,24 +721,38 @@ class DigilentScope:
         time.sleep(settle_time)
 
     @property
-    def horizontal_division(self):
-        return self.__horizontal_division
+    def horizontal_division(self)->float:
+        # to avoid duplicating state, we recreate the horizontal division from frequency
+        # because floating point is imprecise, we have to perform a convuluted rounding method:
+        # we work out the number of decimal places required, and then round based upon that
+        #
+        # if there's a better way, let me know.
+        hdiv = (1./self.frequency)/(_H_DIVS/self.__buffer_size)
+        hdiv_str = "%.11f" % hdiv
+        dp = hdiv_str.split(".")[-1]
+        ndp = -1
+        for idx, h in enumerate(dp):
+            if h != "0":
+                ndp = idx
+                break
+        return round(hdiv, ndp)
 
     @horizontal_division.setter
-    def horizontal_division(self, hdiv):
-        self.__horizontal_division = hdiv
+    def horizontal_division(self, hdiv: float):
         self.frequency = (1./hdiv) * (self.__buffer_size / _H_DIVS)
 
     @property
     def acquire_mode(self):
         mode = c_int()
-        self.device.call(dwf.FDwfAnalogInAcquisitionModeGet, self.device.handle, byref(mode))
+        self.device.call(dwf.FDwfAnalogInAcquisitionModeGet,
+                         self.device.handle, byref(mode))
         return list(filter(lambda x: x == mode.value, DigilentScope.AcquireMode.modes))[0]
 
     @acquire_mode.setter
     def acquire_mode(self, mode):
         modes = c_int()
-        self.device.call(dwf.FDwfAnalogInAcquisitionModeInfo, self.device.handle, byref(modes))
+        self.device.call(dwf.FDwfAnalogInAcquisitionModeInfo,
+                         self.device.handle, byref(modes))
         # the above call returns a bit mask, AND with the given mode to determine
         # if the provided mode is valid
         if (1 << mode) & modes.value:
@@ -700,13 +765,15 @@ class DigilentScope:
     @property
     def state(self):
         state = c_int()
-        self.device.call(dwf.FDwfAnalogInStatus, self.device.handle, c_int(0), byref(state))
+        self.device.call(dwf.FDwfAnalogInStatus,
+                         self.device.handle, c_int(0), byref(state))
         return state.value
 
     @property
     def frequency(self):
         freq = c_double()
-        self.device.call(dwf.FDwfAnalogInFrequencyGet, self.device.handle, byref(freq))
+        self.device.call(dwf.FDwfAnalogInFrequencyGet,
+                         self.device.handle, byref(freq))
         return freq.value
 
     @frequency.setter
@@ -714,7 +781,7 @@ class DigilentScope:
         if frequency_hertz < self.bounds["frequency"]["min"] or frequency_hertz > self.bounds["frequency"]["max"]:
             raise Exception("Selected frequency is out of bounds")
         self.device.call(dwf.FDwfAnalogInFrequencySet,
-            self.device.handle, c_double(frequency_hertz))
+                         self.device.handle, c_double(frequency_hertz))
 
     @property
     def data(self):
@@ -727,7 +794,8 @@ class DigilentScope:
         return tup
 
     def acquire(self, wait_for=None):
-        self.device.call(dwf.FDwfAnalogInConfigure, self.device.handle, c_bool(False), c_int(1))
+        self.device.call(dwf.FDwfAnalogInConfigure,
+                         self.device.handle, c_bool(False), c_int(1))
 
         if wait_for is None:
             return
@@ -740,6 +808,7 @@ class DigilentScope:
 
     def acquire_complete(self):
         return self.state == DigilentScope.AcquireState.Triggered or self.state == DigilentScope.AcquireState.Done
+
 
 class DigilentDigitalIO:
     class Mode:
@@ -789,6 +858,7 @@ class DigilentDigitalIO:
         else:
             self.bus.value &= ~n
 
+
 class DigilentDigitalIOBus:
     # changes depending on hardware
     # these are provided for typing information
@@ -808,11 +878,14 @@ class DigilentDigitalIOBus:
     def __create_io_props(self):
         # what are the pins and their capabilities?
         pins = c_ulonglong()
-        self.device.call(dwf.FDwfDigitalIOOutputEnableInfo64, self.device.handle, byref(pins))
+        self.device.call(dwf.FDwfDigitalIOOutputEnableInfo64,
+                         self.device.handle, byref(pins))
         output_pins = c_ulonglong()
-        self.device.call(dwf.FDwfDigitalIOOutputInfo64, self.device.handle, byref(output_pins))
+        self.device.call(dwf.FDwfDigitalIOOutputInfo64,
+                         self.device.handle, byref(output_pins))
         input_pins = c_ulonglong()
-        self.device.call(dwf.FDwfDigitalIOInputInfo64, self.device.handle, byref(input_pins))
+        self.device.call(dwf.FDwfDigitalIOInputInfo64,
+                         self.device.handle, byref(input_pins))
 
         self.pins = pins.value
         self.output_pins = output_pins.value
@@ -829,25 +902,30 @@ class DigilentDigitalIOBus:
     @property
     def output_enabled(self):
         en_state = c_ulonglong()
-        self.device.call(dwf.FDwfDigitalIOOutputEnableGet64, self.device.handle, byref(en_state))
+        self.device.call(dwf.FDwfDigitalIOOutputEnableGet64,
+                         self.device.handle, byref(en_state))
         return en_state.value
 
     @output_enabled.setter
     def output_enabled(self, bitmask):
-        bitmask &= self.pins # mask off oob pins
-        self.device.call(dwf.FDwfDigitalIOOutputEnableSet64, self.device.handle, c_ulonglong(bitmask))
+        bitmask &= self.pins  # mask off oob pins
+        self.device.call(dwf.FDwfDigitalIOOutputEnableSet64,
+                         self.device.handle, c_ulonglong(bitmask))
 
     @property
     def value(self):
-        dwf.FDwfDigitalIOStatus(self.device.handle) #must be called before
+        dwf.FDwfDigitalIOStatus(self.device.handle)  # must be called before
         in_state = c_ulonglong()
-        self.device.call(dwf.FDwfDigitalIOInputStatus64, self.device.handle, byref(in_state))
+        self.device.call(dwf.FDwfDigitalIOInputStatus64,
+                         self.device.handle, byref(in_state))
         return in_state.value
 
     @value.setter
     def value(self, bitmask):
-        bitmask &= self.output_pins # mask off oob pins
-        self.device.call(dwf.FDwfDigitalIOOutputSet64, self.device.handle, c_ulonglong(bitmask))
+        bitmask &= self.output_pins  # mask off oob pins
+        self.device.call(dwf.FDwfDigitalIOOutputSet64,
+                         self.device.handle, c_ulonglong(bitmask))
+
 
 class DigilentPowerNode:
     def __init__(self, device, idx, name, unit, channel):
@@ -862,7 +940,8 @@ class DigilentPowerNode:
 
     def __discover_mode(self):
         mode = c_int()
-        self.device.call(dwf.FDwfAnalogIOChannelNodeInfo, self.device.handle, self.channel.idx, self.idx, byref(mode))
+        self.device.call(dwf.FDwfAnalogIOChannelNodeInfo,
+                         self.device.handle, self.channel.idx, self.idx, byref(mode))
         self.__mode = mode.value
         #  if self.__mode == analogioEnable.value:
         #     print(" enable", end="")
@@ -880,7 +959,8 @@ class DigilentPowerNode:
         pmin = c_double()
         pmax = c_double()
         pnum = c_int()
-        self.device.call(dwf.FDwfAnalogIOChannelNodeSetInfo, self.device.handle, self.channel.idx, self.idx, byref(pmin), byref(pmax), byref(pnum))
+        self.device.call(dwf.FDwfAnalogIOChannelNodeSetInfo, self.device.handle,
+                         self.channel.idx, self.idx, byref(pmin), byref(pmax), byref(pnum))
 
         self.min = pmin.value
         self.max = pmax.value
@@ -893,7 +973,8 @@ class DigilentPowerNode:
     @property
     def value(self):
         val = c_double()
-        self.device.call(dwf.FDwfAnalogIOChannelNodeGet, self.device.handle, self.channel.idx, self.idx, byref(val))
+        self.device.call(dwf.FDwfAnalogIOChannelNodeGet,
+                         self.device.handle, self.channel.idx, self.idx, byref(val))
         return val.value
 
     @value.setter
@@ -901,7 +982,9 @@ class DigilentPowerNode:
         if not self.writable:
             raise Exception("Trying to write a read only property")
 
-        self.device.call(dwf.FDwfAnalogIOChannelNodeSet, self.device.handle, self.channel.idx, self.idx, c_double(value))
+        self.device.call(dwf.FDwfAnalogIOChannelNodeSet, self.device.handle,
+                         self.channel.idx, self.idx, c_double(value))
+
 
 class DigilentPowerChannel:
     class ChannelType:
@@ -921,16 +1004,20 @@ class DigilentPowerChannel:
 
         @staticmethod
         def label_to_type(label: str):
-            translated = DigilentPowerChannel.ChannelType.__translate(DigilentPowerChannel.ChannelType.types_string, label, DigilentPowerChannel.ChannelType.types)
+            translated = DigilentPowerChannel.ChannelType.__translate(
+                DigilentPowerChannel.ChannelType.types_string, label, DigilentPowerChannel.ChannelType.types)
             if translated is None:
                 print("Unknown channel type '%s'. Proceed with caution" % label)
                 return -1
             return translated
+
         @staticmethod
         def label_to_varname(label: str):
-            translated = DigilentPowerChannel.ChannelType.__translate(DigilentPowerChannel.ChannelType.types_string, label, DigilentPowerChannel.ChannelType.var_names)
+            translated = DigilentPowerChannel.ChannelType.__translate(
+                DigilentPowerChannel.ChannelType.types_string, label, DigilentPowerChannel.ChannelType.var_names)
             if translated is None:
-                raise Exception("Unknown variable '%s'. Cannot generate variable name." % label)
+                raise Exception(
+                    "Unknown variable '%s'. Cannot generate variable name." % label)
             return translated
 
     enable: Optional[DigilentPowerNode] = None
@@ -947,7 +1034,8 @@ class DigilentPowerChannel:
         self.type = self.ChannelType.label_to_type(label)
 
         nodes = c_int()
-        self.device.call(dwf.FDwfAnalogIOChannelInfo, self.device.handle, self.idx, byref(nodes))
+        self.device.call(dwf.FDwfAnalogIOChannelInfo,
+                         self.device.handle, self.idx, byref(nodes))
         self.__node_count = nodes.value
 
         nodes = []
@@ -955,7 +1043,8 @@ class DigilentPowerChannel:
         for i in range(0, self.__node_count):
             nodeName = (c_char * 32)()
             units = (c_char * 16)()
-            self.device.call(dwf.FDwfAnalogIOChannelNodeName, self.device.handle, self.idx, c_int(i), nodeName, units)
+            self.device.call(dwf.FDwfAnalogIOChannelNodeName,
+                             self.device.handle, self.idx, c_int(i), nodeName, units)
             nodeName = str(nodeName.value, encoding="utf-8")
             unit = str(units, encoding="utf-8")
             n = DigilentPowerNode(self.device, i, nodeName.lower(), unit, self)
@@ -984,6 +1073,7 @@ class DigilentPowerChannel:
             return self.__dict__[name].value
         return self.__dict__[name]
 
+
 class DigilentPowerMaster:
     def __init__(self, device: DigilentDevice, power):
         self.device = device
@@ -993,12 +1083,15 @@ class DigilentPowerMaster:
     def enable(self) -> bool:
         self.power._fetch_status()
         en = c_int()
-        self.device.call(dwf.FDwfAnalogIOEnableStatus, self.device.handle, byref(en))
+        self.device.call(dwf.FDwfAnalogIOEnableStatus,
+                         self.device.handle, byref(en))
         return en.value > 0
 
     @enable.setter
     def enable(self, value: bool):
-        self.device.call(dwf.FDwfAnalogIOEnableSet, self.device.handle, c_bool(value))
+        self.device.call(dwf.FDwfAnalogIOEnableSet,
+                         self.device.handle, c_bool(value))
+
 
 class DigilentPower:
     master: Optional[DigilentPowerMaster] = None
@@ -1017,7 +1110,8 @@ class DigilentPower:
 
         mEnSupp = c_int()
         mReadable = c_int()
-        self.device.call(dwf.FDwfAnalogIOEnableInfo, self.device.handle, byref(mEnSupp), byref(mReadable))
+        self.device.call(dwf.FDwfAnalogIOEnableInfo,
+                         self.device.handle, byref(mEnSupp), byref(mReadable))
 
         if mEnSupp.value > 0:
             self.master = DigilentPowerMaster(self.device, self)
@@ -1026,21 +1120,25 @@ class DigilentPower:
 
     def __create_channels(self):
         chan_count = c_int()
-        self.device.call(dwf.FDwfAnalogIOChannelCount, self.device.handle, byref(chan_count))
+        self.device.call(dwf.FDwfAnalogIOChannelCount,
+                         self.device.handle, byref(chan_count))
 
         for c in range(0, chan_count.value):
-            name = (c_char * 32)() # max name is 32 bytes
-            label = (c_char * 16)() # max label is 16 bytes
-            self.device.call(dwf.FDwfAnalogIOChannelName, self.device.handle, c_int(c), byref(name), byref(label))
+            name = (c_char * 32)()  # max name is 32 bytes
+            label = (c_char * 16)()  # max label is 16 bytes
+            self.device.call(dwf.FDwfAnalogIOChannelName, self.device.handle, c_int(
+                c), byref(name), byref(label))
 
             name = str(name.value, encoding="utf-8")
             label = str(label.value, encoding="utf-8")
 
-            self.__setattr__(DigilentPowerChannel.ChannelType.label_to_varname(label), DigilentPowerChannel(self.device, name, label, c, self))
+            self.__setattr__(DigilentPowerChannel.ChannelType.label_to_varname(
+                label), DigilentPowerChannel(self.device, name, label, c, self))
 
     def _fetch_status(self):
         # read status from dev..
         self.device.call(dwf.FDwfAnalogIOStatus, self.device.handle)
+
 
 class DigilentI2C:
     class I2CDataFrame:
@@ -1049,12 +1147,13 @@ class DigilentI2C:
         stop_detected: bool
         data: list[int]
         error: bool
+
         def __init__(self, start, stop, data, dmax, nak_status):
             self.start_detected = start.value == 1
             self.restart_detected = start.value == 2
             self.stop_detected = stop.value == 1
             self.data = [d for idx, d in enumerate(data) if idx < dmax.value]
-            self.error = nak_status.value < 0 # neg indicates error
+            self.error = nak_status.value < 0  # neg indicates error
 
     def __init__(self, device):
         self.device = device
@@ -1065,13 +1164,15 @@ class DigilentI2C:
 
     def fix_lockup(self):
         unlocked = c_int()
-        self.device.call(dwf.FDwfDigitalI2cClear, self.device.handle, byref(unlocked))
+        self.device.call(dwf.FDwfDigitalI2cClear,
+                         self.device.handle, byref(unlocked))
         if not unlocked:
             raise Exception("Could not resolve I2C lock up.")
 
     def __check_initd(self):
         if self.__sda is None or self.__scl is None:
-            raise Exception("SCL and SDA are not set. Set SCL and SDA pins before use.")
+            raise Exception(
+                "SCL and SDA are not set. Set SCL and SDA pins before use.")
 
     @property
     def scl_pin(self) -> DigilentDigitalIO:
@@ -1102,7 +1203,8 @@ class DigilentI2C:
 
     @baud.setter
     def baud(self, baudHz):
-        self.device.call(dwf.FDwfDigitalI2cRateSet, self.device.handle, c_double(baudHz))
+        self.device.call(dwf.FDwfDigitalI2cRateSet,
+                         self.device.handle, c_double(baudHz))
         self.__baud = baudHz
 
     def write(self, devAddress, registerAddress, data):
@@ -1117,7 +1219,8 @@ class DigilentI2C:
 
         nak = c_int()
 
-        self.device.call(dwf.FDwfDigitalI2cWrite, self.device.handle, c_ubyte(devAddress), txBuffer, c_int(len(data)), byref(nak))
+        self.device.call(dwf.FDwfDigitalI2cWrite, self.device.handle, c_ubyte(
+            devAddress), txBuffer, c_int(len(data)), byref(nak))
 
         if nak != 0:
             raise Exception("One or more bytes were not ACK'd.")
@@ -1131,7 +1234,8 @@ class DigilentI2C:
 
         nak = c_int()
 
-        self.device.call(dwf.FDwfDigitalI2cWriteRead, self.device.handle, registerAddress, c_int(1), rxBuffer, c_int(rxLength), byref(nak))
+        self.device.call(dwf.FDwfDigitalI2cWriteRead, self.device.handle,
+                         registerAddress, c_int(1), rxBuffer, c_int(rxLength), byref(nak))
 
         if nak != 0:
             raise Exception("One or more bytes were not ACK'd.")
@@ -1149,6 +1253,7 @@ class DigilentI2C:
 
         dataBuffer = (c_ubyte * 256)()
 
-        self.device.call(self.device.handle, byref(start), byref(stop), dataBuffer, byref(dMax), byref(nak))
+        self.device.call(self.device.handle, byref(start), byref(
+            stop), dataBuffer, byref(dMax), byref(nak))
 
         return DigilentI2C.I2CDataFrame(start, stop, dataBuffer, dMax, nak)
