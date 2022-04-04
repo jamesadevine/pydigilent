@@ -79,7 +79,7 @@ class DigilentDevice:
         ADP3X50 = "ADP3X50"
         ADP5250 = "ADP5250"
         Any = "Any"
-        
+
     serial = ""
     name = ""
     type = ""
@@ -94,9 +94,11 @@ class DigilentDevice:
             raise Exception(self.error_message)
 
     def __init__(self, idx):
+        idx = c_int(idx)
         name = create_string_buffer(64)
         sn = create_string_buffer(64)
         dtype = c_int()
+        # print("idx?: %d" % idx.value)
         dwf.FDwfEnumDeviceType(idx, byref(dtype))
         dwf.FDwfEnumSN(idx, byref(sn))
         dwf.FDwfEnumDeviceName(idx, byref(name))
@@ -110,7 +112,7 @@ class DigilentDevice:
         err = c_int()
         dwf.FDwfGetLastError(byref(err))
         return err.value != dwfercNoErc.value
-        
+
     @property
     def error_message(self):
         msg = (c_byte * 512)()
@@ -143,7 +145,7 @@ class DigilentDevice:
         if self.__handle is not None:
             return
         self.__handle = c_int()
-        self.call(dwf.FDwfDeviceOpen, c_int(self.idx), byref(self.__handle))
+        self.call(dwf.FDwfDeviceOpen, self.idx, byref(self.__handle))
 
     def close(self):
         if self.__handle is None or self.__handle.value == 0:
@@ -176,7 +178,7 @@ class AnalogDiscovery2:
 
         if device is None:
             raise Exception("No Digilent device found.")
-        
+
         self.device = device
 
         self.scope = DigilentScope(self.device)
@@ -201,7 +203,7 @@ class AnalogDiscovery2:
         ydispmax=np.max(main["yaxis"])
         if ydispmax < yvalmin:
             raise Exception("Rendering data outside plot. Adjust scope offset.")
-        
+
         plt.xlabel(main["xlabel"])
         plt.ylabel(main["ylabel"])
         plt.xticks(main["xticks"], rotation=90)
@@ -265,7 +267,7 @@ def retrieve_device(filter: DigilentDevice.DeviceType, raw=False):
 
     if len(devices) == 0:
         return None
-    
+
     return devices[0]
 
 class DigilentScopeTrigger:
@@ -340,14 +342,14 @@ class DigilentScopeTrigger:
             raise Exception("Level out of bounds")
         self.device.call(dwf.FDwfAnalogInTriggerLevelSet, self.device.handle, c_double(level))
 
-    @property 
+    @property
     def source(self):
         src = c_int()
         self.device.call(dwf.FDwfAnalogInTriggerSourceGet, self.device.handle, byref(src))
         return src.value
 
     ###
-    # Set the trigger source. 
+    # Set the trigger source.
     # @param src A class property of TriggerSource.
     ###
     @source.setter
@@ -362,7 +364,7 @@ class DigilentScopeTrigger:
         chan = c_int()
         dwf.FDwfAnalogInTriggerChannelGet(self.device.handle, byref(chan))
         return chan.value
-    
+
     @channel.setter
     def channel (self, channel: int):
         if channel < self.bounds["channel"]["min"] or channel > self.bounds["channel"]["max"]:
@@ -377,7 +379,7 @@ class DigilentScopeTrigger:
         return cond.value
 
     ###
-    # Set the trigger source. 
+    # Set the trigger source.
     # @param src A class property of TriggerCondition.
     ###
     @condition.setter
@@ -440,7 +442,7 @@ class DigilentScopeChannel:
         self.device.call(dwf.FDwfAnalogInChannelOffsetGet,
             self.device.handle, self.idx, byref(offset))
         return offset.value
-    
+
     @offset.setter
     def offset(self, offset):
         if offset < self.scope.bounds["offset"]["min"] or offset > self.scope.bounds["offset"]["max"]:
@@ -455,7 +457,7 @@ class DigilentScopeChannel:
         buffer = None
         state = c_int()
         self.device.call(dwf.FDwfAnalogInStatus, self.device.handle, c_int(1), byref(state))
-        
+
         u16Read = False
         if u16Read:
             buffer = (c_ushort * self.__buffer_size)()
@@ -500,7 +502,7 @@ class DigilentScopeChannel:
         sample_freq = 1. / freq # frequency to seconds
         total_samples = sample_freq * self.__buffer_size
         units = [{"unit": "ns", "multiplier":1000000000., "tick_step":500}, {"unit": "us", "multiplier":1000000., "tick_step":50}, {"unit": "ms", "multiplier":1000., "tick_step":.5}, {"unit": "s", "multiplier":1., "tick_step":.05}]
-        ns_thresh = 0.000000001 
+        ns_thresh = 0.000000001
         sf = 1000.
         unit = None
 
@@ -509,7 +511,7 @@ class DigilentScopeChannel:
             if total_samples < ns_thresh * sf:
                 break
             sf *= 1000
-        
+
         return unit
 
     @property
@@ -754,7 +756,7 @@ class DigilentDigitalIO:
     @property
     def mode(self):
         return self.__mode
-    
+
     @mode.setter
     def mode(self, mode):
         if mode != self.__mode:
@@ -803,7 +805,7 @@ class DigilentDigitalIOBus:
         self.device = device
         dwf.FDwfDigitalIOReset(self.device.handle)
         self.__create_io_props()
-    
+
     def __create_io_props(self):
         # what are the pins and their capabilities?
         pins = c_ulonglong()
@@ -835,7 +837,7 @@ class DigilentDigitalIOBus:
     def output_enabled(self, bitmask):
         bitmask &= self.pins # mask off oob pins
         self.device.call(dwf.FDwfDigitalIOOutputEnableSet64, self.device.handle, c_ulonglong(bitmask))
-    
+
     @property
     def value(self):
         dwf.FDwfDigitalIOStatus(self.device.handle) #must be called before
@@ -874,7 +876,7 @@ class DigilentPowerNode:
 
         # if self.__mode == analogioTemperature.value:
         #     print(" temp", end="")
-        
+
     def __get_set_info(self):
         pmin = c_double()
         pmax = c_double()
@@ -888,7 +890,7 @@ class DigilentPowerNode:
         self.writable = not (self.num_steps == 0 or self.num_steps == 1)
 
         # print("%s min: %f max: %d steps: %d writable: %d" % (self.name, self.min, self.max, self.num_steps, self.writable))
-    
+
     @property
     def value(self):
         val = c_double()
@@ -909,7 +911,7 @@ class DigilentPowerChannel:
         USB = 2
         AUX = 3
         V_PLUS_MINUS = 4
-        types = [V_PLUS, V_MINUS, USB, AUX, V_PLUS_MINUS] 
+        types = [V_PLUS, V_MINUS, USB, AUX, V_PLUS_MINUS]
         types_string = ["V+", "V-", "USB", "Aux", "V+-"]
         var_names = ["vplus", "vminus", "usb", "aux", "vplusminus"]
 
@@ -917,7 +919,7 @@ class DigilentPowerChannel:
             if value in from_list:
                 return to_list[from_list.index(value)]
             return None
-        
+
         @staticmethod
         def label_to_type(label: str):
             translated = DigilentPowerChannel.ChannelType.__translate(DigilentPowerChannel.ChannelType.types_string, label, DigilentPowerChannel.ChannelType.types)
@@ -942,7 +944,7 @@ class DigilentPowerChannel:
         self.name = name
         self.label = label
         self.idx = c_int(idx)
-        self.power = power 
+        self.power = power
         self.type = self.ChannelType.label_to_type(label)
 
         nodes = c_int()
@@ -970,7 +972,7 @@ class DigilentPowerChannel:
             nodes = self.nodes
         if name in [n.name for n in nodes]:
             self.__dict__[name].value = value
-            print("CUSTOM SET ATTR %s %s" % (name,value))
+            # print("CUSTOM SET ATTR %s %s" % (name,value))
             return
         self.__dict__[name] = value
 
@@ -988,7 +990,7 @@ class DigilentPowerMaster:
         self.device = device
         self.power = power
 
-    @property    
+    @property
     def enable(self) -> bool:
         self.power._fetch_status()
         en = c_int()
@@ -1006,7 +1008,7 @@ class DigilentPower:
     usb: Optional[DigilentPowerChannel] = None
     aux: Optional[DigilentPowerChannel] = None
     vplusminus: Optional[DigilentPowerChannel] = None
-    
+
     def __init__(self, device):
         self.device = device
         # reset interfaces
@@ -1019,8 +1021,8 @@ class DigilentPower:
         self.device.call(dwf.FDwfAnalogIOEnableInfo, self.device.handle, byref(mEnSupp), byref(mReadable))
 
         if mEnSupp.value > 0:
-            self.master = DigilentPowerMaster(self.device)
-        
+            self.master = DigilentPowerMaster(self.device, self)
+
         self.__create_channels()
 
     def __create_channels(self):
@@ -1031,7 +1033,7 @@ class DigilentPower:
             name = (c_char * 32)() # max name is 32 bytes
             label = (c_char * 16)() # max label is 16 bytes
             self.device.call(dwf.FDwfAnalogIOChannelName, self.device.handle, c_int(c), byref(name), byref(label))
-            
+
             name = str(name.value, encoding="utf-8")
             label = str(label.value, encoding="utf-8")
 
@@ -1075,7 +1077,7 @@ class DigilentI2C:
     @property
     def scl_pin(self) -> DigilentDigitalIO:
         return self.__scl
-    
+
     @scl_pin.setter
     def scl_pin(self, pin: DigilentDigitalIO):
         self.device.call(dwf.FDwfDigitalI2cSclSet, self.device.handle, pin.idx)
@@ -1085,7 +1087,7 @@ class DigilentI2C:
     @property
     def sda_pin(self) -> DigilentDigitalIO:
         return self.__sda
-    
+
     @sda_pin.setter
     def sda_pin(self, pin: DigilentDigitalIO):
         self.device.call(dwf.FDwfDigitalI2cSdaSet, self.device.handle, pin.idx)
@@ -1113,7 +1115,7 @@ class DigilentI2C:
         txBuffer[0] = c_ubyte(registerAddress)
         for i in range(1, len(data)):
             txBuffer[i] = c_ubyte(data[i])
-        
+
         nak = c_int()
 
         self.device.call(dwf.FDwfDigitalI2cWrite, self.device.handle, c_ubyte(devAddress), txBuffer, c_int(len(data)), byref(nak))
