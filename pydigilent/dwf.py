@@ -98,7 +98,6 @@ class DigilentDevice:
         name = create_string_buffer(64)
         sn = create_string_buffer(64)
         dtype = c_int()
-        # print("idx?: %d" % idx.value)
         dwf.FDwfEnumDeviceType(idx, byref(dtype))
         dwf.FDwfEnumSN(idx, byref(sn))
         dwf.FDwfEnumDeviceName(idx, byref(name))
