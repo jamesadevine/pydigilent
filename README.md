@@ -14,6 +14,12 @@ Via pip:
 pip install pydigilent
 ```
 
+The latest version might not be available on pip. Install source to pip by:
+
+1. Download/clone this repository
+2. Navigate to the downloaded/cloned repository and open a terminal
+3. `pip install -e .`
+
 ## Samples
 
 ### Blinkity blink
