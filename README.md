@@ -8,7 +8,7 @@ Formally, only the object model of the AnalogDiscovery2 is supported. Object mod
 
 ## Installation
 
-The package requires the Waveforms SDK to be installed. The SDK comes as part of the [Waveforms software installation](https://digilent.com/reference/software/waveforms/waveforms-3/start)
+To run, the package requires the Waveforms SDK to be installed. The SDK comes as part of the [Waveforms software installation](https://digilent.com/reference/software/waveforms/waveforms-3/start)
 
 Via pip:
 
